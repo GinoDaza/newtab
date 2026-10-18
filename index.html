@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>New Tab</title>
+<style>
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: #1b2a33 url(bg.jpg) center / cover no-repeat fixed;
+    font-family: "Segoe UI", system-ui, sans-serif;
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 160px;
+    box-sizing: border-box;
+  }
+  form { width: min(950px, 90vw); }
+  input[type=search] {
+    width: 100%;
+    box-sizing: border-box;
+    height: 70px;
+    border: 0;
+    border-radius: 35px;
+    padding: 0 32px;
+    font-size: 20px;
+    outline: none;
+  }
+  .grid {
+    width: min(720px, 90vw);
+    margin-top: 12px;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 10px 8px;
+  }
+  .grid a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 4px;
+    border-radius: 8px;
+    color: #fff;
+    text-decoration: none;
+    font-size: 13px;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
+  }
+  .grid a:hover, .grid a:focus { background: rgba(0, 0, 0, .35); outline: none; }
+  .grid .ico {
+    width: 46px;
+    height: 46px;
+    border-radius: 10px;
+    background: rgba(40, 40, 40, .85);
+    display: grid;
+    place-items: center;
+  }
+  .grid img { width: 28px; height: 28px; }
+  .grid span.name { max-width: 96px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+</style>
+</head>
+<body>
+<form action="https://www.bing.com/search" method="get">
+  <input type="search" name="q" placeholder="Search the web" autocomplete="off">
+</form>
+<nav class="grid" id="grid"></nav>
+<script>
+  // [label, url] — add or reorder here
+  const shortcuts = [
+    ["Gmail", "https://mail.google.com"],
+    ["Drive", "https://drive.google.com"],
+    ["Translate", "https://translate.google.com"],
+    ["Calendar", "https://calendar.google.com"],
+    ["Github", "https://github.com"],
+    ["Gradescope", "https://www.gradescope.com"],
+    ["Piazza", "https://piazza.com"],
+    ["Sistema Académico", "https://sistema-academico.utec.edu.pe"],
+    ["Gemini", "https://gemini.google.com"],
+  ];
+  const grid = document.getElementById("grid");
+  for (const [name, url] of shortcuts) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.innerHTML = '<div class="ico"><img alt=""></div><span class="name"></span>';
+    a.querySelector("img").src = "https://www.google.com/s2/favicons?sz=64&domain=" + new URL(url).hostname;
+    a.querySelector(".name").textContent = name;
+    grid.append(a);
+  }
+</script>
+</body>
+</html>
