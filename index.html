@@ -17,6 +17,13 @@
     padding-top: 140px;
     box-sizing: border-box;
   }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(rgba(0, 0, 0, .45), rgba(0, 0, 0, .15) 55%, transparent);
+  }
   form { width: min(760px, 90vw); }
   input[type=search] {
     width: 100%;
@@ -45,7 +52,7 @@
     color: #fff;
     text-decoration: none;
     font-size: 12px;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, .8);
+    text-shadow: 0 0 3px #000, 0 1px 4px rgba(0, 0, 0, .9);
   }
   .grid a:hover, .grid a:focus { background: rgba(0, 0, 0, .35); outline: none; }
   .grid .ico {
@@ -58,6 +65,26 @@
   }
   .grid img { width: 22px; height: 22px; }
   .grid span.name { max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .grid .letter { font-weight: 600; font-size: 18px; }
+  .grid a.add .ico { background: rgba(40, 40, 40, .55); font-size: 22px; }
+  body.editing .grid a:not(.add) .ico { outline: 2px dashed rgba(255, 255, 255, .7); }
+  .tools { position: fixed; right: 16px; bottom: 12px; display: flex; gap: 14px; font-size: 12px; }
+  .tools button {
+    background: rgba(0, 0, 0, .4); color: #fff; border: 0; border-radius: 6px;
+    padding: 5px 10px; font: inherit; cursor: pointer;
+  }
+  .tools button:hover, .tools button:focus { background: rgba(0, 0, 0, .7); outline: none; }
+  body.editing #editBtn { background: #1a73e8; }
+  dialog { border: 0; border-radius: 12px; padding: 20px; width: min(360px, 90vw); background: #2b2b2b; color: #fff; }
+  dialog::backdrop { background: rgba(0, 0, 0, .5); }
+  dialog label { display: block; font-size: 12px; margin: 10px 0 4px; color: #bbb; }
+  dialog input { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; border: 1px solid #555; background: #1e1e1e; color: #fff; font-size: 14px; }
+  dialog .row { display: flex; gap: 8px; margin-top: 16px; }
+  dialog .row button { padding: 7px 14px; border-radius: 6px; border: 0; cursor: pointer; font-size: 13px; }
+  dialog .row .spacer { flex: 1; }
+  #saveBtn { background: #1a73e8; color: #fff; }
+  #delBtn { background: #8b2a2a; color: #fff; }
+  #cancelBtn { background: #444; color: #fff; }
 </style>
 </head>
 <body>
@@ -65,19 +92,45 @@
   <input id="q" type="search" name="q" placeholder="Search Google or type a URL" autocomplete="off" autofocus>
 </form>
 <nav class="grid" id="grid"></nav>
+<div class="tools">
+  <button id="editBtn" type="button">Edit</button>
+  <button id="exportBtn" type="button">Export</button>
+  <button id="importBtn" type="button">Import</button>
+  <input id="importFile" type="file" accept="application/json" hidden>
+</div>
+<dialog id="dlg">
+  <form method="dialog" id="dlgForm">
+    <label>Name</label><input id="fName" required>
+    <label>URL</label><input id="fUrl" required placeholder="example.com">
+    <label>Icon URL (optional)</label><input id="fIcon" placeholder="https://…/icon.png">
+    <div class="row">
+      <button id="delBtn" type="button">Delete</button>
+      <span class="spacer"></span>
+      <button id="cancelBtn" type="button">Cancel</button>
+      <button id="saveBtn" type="submit">Save</button>
+    </div>
+  </form>
+</dialog>
 <script>
-  // [label, url] — add or reorder here
-  const shortcuts = [
-    ["Gmail", "https://mail.google.com"],
-    ["Drive", "https://drive.google.com"],
-    ["Translate", "https://translate.google.com"],
-    ["Calendar", "https://calendar.google.com"],
-    ["Github", "https://github.com"],
-    ["Gradescope", "https://www.gradescope.com"],
-    ["Piazza", "https://piazza.com"],
-    ["Sistema Académico", "https://sistema-academico.utec.edu.pe"],
-    ["Gemini", "https://gemini.google.com"],
+  // Used the first time, before anything is saved in this browser
+  const DEFAULTS = [
+    { name: "Gmail", url: "https://mail.google.com", icon: "https://ssl.gstatic.com/images/branding/product/2x/gmail_2020q4_48dp.png" },
+    { name: "Drive", url: "https://drive.google.com", icon: "https://ssl.gstatic.com/images/branding/product/2x/drive_2020q4_48dp.png" },
+    { name: "Translate", url: "https://translate.google.com" },
+    { name: "Calendar", url: "https://calendar.google.com", icon: "https://ssl.gstatic.com/images/branding/product/2x/calendar_2020q4_48dp.png" },
+    { name: "Github", url: "https://github.com" },
+    { name: "Gradescope", url: "https://www.gradescope.com" },
+    { name: "Piazza", url: "https://piazza.com" },
+    { name: "Sistema Académico", url: "https://sistema-academico.utec.edu.pe" },
+    { name: "Gemini", url: "https://gemini.google.com" },
   ];
+  const KEY = "shortcuts";
+  let shortcuts;
+  try { shortcuts = JSON.parse(localStorage.getItem(KEY)); } catch {}
+  if (!Array.isArray(shortcuts)) shortcuts = DEFAULTS;
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(shortcuts)); } catch {} };
+  const fullUrl = u => /^[a-z][a-z0-9+.-]*:/i.test(u) ? u : "https://" + u;
+
   // Domains and URLs open directly; anything else goes to Google
   const q = document.getElementById("q");
   const looksLikeUrl = t => /^(https?|file|chrome|edge|about):/i.test(t) ||
@@ -94,14 +147,86 @@
   window.addEventListener("load", () => q.focus());
 
   const grid = document.getElementById("grid");
-  for (const [name, url] of shortcuts) {
-    const a = document.createElement("a");
-    a.href = url;
-    a.innerHTML = '<div class="ico"><img alt=""></div><span class="name"></span>';
-    a.querySelector("img").src = "https://www.google.com/s2/favicons?sz=64&domain=" + new URL(url).hostname;
-    a.querySelector(".name").textContent = name;
-    grid.append(a);
+  const dlg = document.getElementById("dlg");
+  const [fName, fUrl, fIcon] = ["fName", "fUrl", "fIcon"].map(id => document.getElementById(id));
+  let editing = false, editIndex = -1;
+
+  function iconFor(sc) {
+    const img = document.createElement("img");
+    img.alt = "";
+    img.src = sc.icon || "https://www.google.com/s2/favicons?sz=64&domain=" + new URL(fullUrl(sc.url)).hostname;
+    img.onerror = () => {
+      const l = document.createElement("span");
+      l.className = "letter";
+      l.textContent = sc.name.charAt(0).toUpperCase();
+      img.replaceWith(l);
+    };
+    return img;
   }
+
+  function openDialog(i) {
+    editIndex = i;
+    const sc = shortcuts[i] || { name: "", url: "", icon: "" };
+    fName.value = sc.name; fUrl.value = sc.url; fIcon.value = sc.icon || "";
+    document.getElementById("delBtn").hidden = i < 0;
+    dlg.showModal();
+    fName.focus();
+  }
+
+  function render() {
+    grid.replaceChildren();
+    shortcuts.forEach((sc, i) => {
+      const a = document.createElement("a");
+      a.href = fullUrl(sc.url);
+      a.innerHTML = '<div class="ico"></div><span class="name"></span>';
+      a.querySelector(".ico").append(iconFor(sc));
+      a.querySelector(".name").textContent = sc.name;
+      a.addEventListener("click", e => { if (editing) { e.preventDefault(); openDialog(i); } });
+      a.addEventListener("contextmenu", e => { e.preventDefault(); openDialog(i); });
+      grid.append(a);
+    });
+    const add = document.createElement("a");
+    add.href = "#";
+    add.className = "add";
+    add.innerHTML = '<div class="ico">+</div><span class="name">Add shortcut</span>';
+    add.addEventListener("click", e => { e.preventDefault(); openDialog(-1); });
+    grid.append(add);
+  }
+
+  document.getElementById("dlgForm").addEventListener("submit", () => {
+    const sc = { name: fName.value.trim(), url: fUrl.value.trim() };
+    if (fIcon.value.trim()) sc.icon = fIcon.value.trim();
+    if (editIndex < 0) shortcuts.push(sc); else shortcuts[editIndex] = sc;
+    save(); render();
+  });
+  document.getElementById("delBtn").addEventListener("click", () => {
+    shortcuts.splice(editIndex, 1);
+    save(); render(); dlg.close();
+  });
+  document.getElementById("cancelBtn").addEventListener("click", () => dlg.close());
+  document.getElementById("editBtn").addEventListener("click", () => {
+    editing = !editing;
+    document.body.classList.toggle("editing", editing);
+  });
+  document.getElementById("exportBtn").addEventListener("click", () => {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(shortcuts, null, 2)], { type: "application/json" }));
+    a.download = "newtab-shortcuts.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
+  const importFile = document.getElementById("importFile");
+  document.getElementById("importBtn").addEventListener("click", () => importFile.click());
+  importFile.addEventListener("change", async () => {
+    try {
+      const data = JSON.parse(await importFile.files[0].text());
+      if (!Array.isArray(data) || !data.every(x => x && x.name && x.url)) throw 0;
+      shortcuts = data; save(); render();
+    } catch { alert("Invalid shortcuts file"); }
+    importFile.value = "";
+  });
+
+  render();
 </script>
 </body>
 </html>
