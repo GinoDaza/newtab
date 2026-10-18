@@ -56,35 +56,46 @@
   }
   .grid a:hover, .grid a:focus { background: rgba(0, 0, 0, .35); outline: none; }
   .grid .ico {
-    width: 38px;
-    height: 38px;
-    border-radius: 9px;
+    width: 46px;
+    height: 46px;
+    border-radius: 11px;
     background: rgba(40, 40, 40, .85);
     display: grid;
     place-items: center;
   }
-  .grid img { width: 22px; height: 22px; }
+  .grid img { width: 34px; height: 34px; object-fit: contain; }
   .grid span.name { max-width: 84px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .grid .letter { font-weight: 600; font-size: 18px; }
-  .grid a.add .ico { background: rgba(40, 40, 40, .55); font-size: 22px; }
-  body.editing .grid a:not(.add) .ico { outline: 2px dashed rgba(255, 255, 255, .7); }
-  .tools { position: fixed; right: 16px; bottom: 12px; display: flex; gap: 14px; font-size: 12px; }
-  .tools button {
-    background: rgba(0, 0, 0, .4); color: #fff; border: 0; border-radius: 6px;
-    padding: 5px 10px; font: inherit; cursor: pointer;
+  .grid .letter { font-weight: 600; font-size: 20px; }
+  .grid a.add .ico { background: rgba(40, 40, 40, .55); font-size: 24px; }
+  button, input, textarea { font-family: inherit; }
+  .gear {
+    position: fixed; right: 14px; bottom: 12px; width: 36px; height: 36px;
+    display: grid; place-items: center; padding: 0; border: 0; border-radius: 8px;
+    background: rgba(0, 0, 0, .4); color: #fff; cursor: pointer;
   }
-  .tools button:hover, .tools button:focus { background: rgba(0, 0, 0, .7); outline: none; }
-  body.editing #editBtn { background: #1a73e8; }
-  dialog { border: 0; border-radius: 12px; padding: 20px; width: min(360px, 90vw); background: #2b2b2b; color: #fff; }
+  .gear:hover, .gear:focus-visible { background: rgba(0, 0, 0, .7); outline: none; }
+  .gear svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  dialog { border: 1px solid rgba(255, 255, 255, .1); border-radius: 8px; padding: 20px; width: min(360px, 90vw); background: #2b2b2b; color: #fff; box-shadow: 0 8px 32px rgba(0, 0, 0, .5); }
   dialog::backdrop { background: rgba(0, 0, 0, .5); }
   dialog label { display: block; font-size: 12px; margin: 10px 0 4px; color: #bbb; }
   dialog input { width: 100%; box-sizing: border-box; padding: 8px 10px; border-radius: 6px; border: 1px solid #555; background: #1e1e1e; color: #fff; font-size: 14px; }
   dialog .row { display: flex; gap: 8px; margin-top: 16px; }
-  dialog .row button { padding: 7px 14px; border-radius: 6px; border: 0; cursor: pointer; font-size: 13px; }
+  dialog button { padding: 7px 14px; border-radius: 6px; border: 0; cursor: pointer; font-size: 13px; color: #fff; background: #444; }
+  dialog button:hover { filter: brightness(1.15); }
   dialog .row .spacer { flex: 1; }
-  #saveBtn { background: #1a73e8; color: #fff; }
-  #delBtn { background: #8b2a2a; color: #fff; }
-  #cancelBtn { background: #444; color: #fff; }
+  dialog .primary, #saveBtn { background: #0067c0; }
+  #delBtn { background: #8b2a2a; }
+  #settings { width: min(560px, 92vw); padding: 0; }
+  .tabs { display: flex; gap: 4px; padding: 12px 16px 0; border-bottom: 1px solid rgba(255, 255, 255, .1); }
+  .tabs button { background: none; border-radius: 6px 6px 0 0; color: #ccc; padding: 8px 16px; border-bottom: 2px solid transparent; }
+  .tabs button.active { color: #fff; border-bottom-color: #60cdff; }
+  .tabs .spacer { flex: 1; }
+  .tabs .close { font-size: 18px; padding: 4px 10px; align-self: center; }
+  .pane { display: none; padding: 16px; font-size: 13px; color: #ddd; }
+  .pane.active { display: block; }
+  .pane p { margin: 0 0 12px; }
+  #json { width: 100%; height: 280px; box-sizing: border-box; resize: vertical; padding: 10px; border-radius: 6px; border: 1px solid #555; background: #1e1e1e; color: #fff; font: 12px/1.5 Consolas, "Cascadia Mono", monospace; tab-size: 2; }
+  #jsonErr { color: #ff8a8a; margin-right: auto; align-self: center; }
 </style>
 </head>
 <body>
@@ -92,12 +103,37 @@
   <input id="q" type="search" name="q" placeholder="Search Google or type a URL" autocomplete="off" autofocus>
 </form>
 <nav class="grid" id="grid"></nav>
-<div class="tools">
-  <button id="editBtn" type="button">Edit</button>
-  <button id="exportBtn" type="button">Export</button>
-  <button id="importBtn" type="button">Import</button>
-  <input id="importFile" type="file" accept="application/json" hidden>
-</div>
+<button class="gear" id="gearBtn" type="button" aria-label="Settings" title="Settings">
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+</button>
+<input id="importFile" type="file" accept="application/json" hidden>
+<dialog id="settings">
+  <div class="tabs" role="tablist">
+    <button type="button" role="tab" data-tab="edit" class="active">Edit</button>
+    <button type="button" role="tab" data-tab="export">Export</button>
+    <button type="button" role="tab" data-tab="import">Import</button>
+    <span class="spacer"></span>
+    <button type="button" class="close" id="closeSettings" aria-label="Close">✕</button>
+  </div>
+  <div class="pane active" id="pane-edit">
+    <textarea id="json" spellcheck="false"></textarea>
+    <div class="row">
+      <span id="jsonErr"></span>
+      <button type="button" id="jsonSave" class="primary">Save</button>
+    </div>
+  </div>
+  <div class="pane" id="pane-export">
+    <p>Download your shortcuts as a JSON file, or copy them to the clipboard.</p>
+    <div class="row">
+      <button type="button" id="exportBtn" class="primary">Download</button>
+      <button type="button" id="copyBtn">Copy JSON</button>
+    </div>
+  </div>
+  <div class="pane" id="pane-import">
+    <p>Replace your shortcuts with the contents of a JSON file.</p>
+    <div class="row"><button type="button" id="importBtn" class="primary">Choose file…</button></div>
+  </div>
+</dialog>
 <dialog id="dlg">
   <form method="dialog" id="dlgForm">
     <label>Name</label><input id="fName" required>
@@ -149,7 +185,7 @@
   const grid = document.getElementById("grid");
   const dlg = document.getElementById("dlg");
   const [fName, fUrl, fIcon] = ["fName", "fUrl", "fIcon"].map(id => document.getElementById(id));
-  let editing = false, editIndex = -1;
+  let editIndex = -1;
 
   function iconFor(sc) {
     const img = document.createElement("img");
@@ -181,8 +217,7 @@
       a.innerHTML = '<div class="ico"></div><span class="name"></span>';
       a.querySelector(".ico").append(iconFor(sc));
       a.querySelector(".name").textContent = sc.name;
-      a.addEventListener("click", e => { if (editing) { e.preventDefault(); openDialog(i); } });
-      a.addEventListener("contextmenu", e => { e.preventDefault(); openDialog(i); });
+            a.addEventListener("contextmenu", e => { e.preventDefault(); openDialog(i); });
       grid.append(a);
     });
     const add = document.createElement("a");
@@ -204,13 +239,37 @@
     save(); render(); dlg.close();
   });
   document.getElementById("cancelBtn").addEventListener("click", () => dlg.close());
-  document.getElementById("editBtn").addEventListener("click", () => {
-    editing = !editing;
-    document.body.classList.toggle("editing", editing);
+  const settings = document.getElementById("settings");
+  const json = document.getElementById("json"), jsonErr = document.getElementById("jsonErr");
+  const pretty = () => JSON.stringify(shortcuts, null, 2);
+  const valid = d => Array.isArray(d) && d.every(x => x && x.name && x.url);
+  function showTab(name) {
+    document.querySelectorAll(".tabs [data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
+    document.querySelectorAll(".pane").forEach(p => p.classList.toggle("active", p.id === "pane-" + name));
+  }
+  document.querySelectorAll(".tabs [data-tab]").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+  document.getElementById("gearBtn").addEventListener("click", () => {
+    json.value = pretty(); jsonErr.textContent = "";
+    showTab("edit");
+    settings.showModal();
+  });
+  document.getElementById("closeSettings").addEventListener("click", () => settings.close());
+  settings.addEventListener("click", e => { if (e.target === settings) settings.close(); });
+  document.getElementById("jsonSave").addEventListener("click", () => {
+    try {
+      const data = JSON.parse(json.value);
+      if (!valid(data)) throw 0;
+      shortcuts = data; save(); render(); settings.close();
+    } catch { jsonErr.textContent = "Invalid JSON: each item needs name and url"; }
+  });
+  document.getElementById("copyBtn").addEventListener("click", async e => {
+    try { await navigator.clipboard.writeText(pretty()); e.target.textContent = "Copied"; }
+    catch { e.target.textContent = "Copy failed"; }
+    setTimeout(() => e.target.textContent = "Copy JSON", 1500);
   });
   document.getElementById("exportBtn").addEventListener("click", () => {
     const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([JSON.stringify(shortcuts, null, 2)], { type: "application/json" }));
+    a.href = URL.createObjectURL(new Blob([pretty()], { type: "application/json" }));
     a.download = "newtab-shortcuts.json";
     a.click();
     URL.revokeObjectURL(a.href);
@@ -220,8 +279,8 @@
   importFile.addEventListener("change", async () => {
     try {
       const data = JSON.parse(await importFile.files[0].text());
-      if (!Array.isArray(data) || !data.every(x => x && x.name && x.url)) throw 0;
-      shortcuts = data; save(); render();
+      if (!valid(data)) throw 0;
+      shortcuts = data; save(); render(); settings.close();
     } catch { alert("Invalid shortcuts file"); }
     importFile.value = "";
   });
