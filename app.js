@@ -54,7 +54,6 @@ function openDialog(i) {
   editIndex = i;
   const sc = shortcuts[i] || { name: "", url: "", icon: "" };
   fName.value = sc.name; fUrl.value = sc.url; fIcon.value = sc.icon || "";
-  document.getElementById("delBtn").hidden = i < 0;
   dlg.showModal();
   fName.focus();
 }
@@ -69,7 +68,13 @@ function render() {
     a.innerHTML = '<div class="ico"></div><span class="name"></span>';
     a.querySelector(".ico").append(iconFor(sc));
     a.querySelector(".name").textContent = sc.name;
-    a.addEventListener("contextmenu", e => { e.preventDefault(); openDialog(i); });
+    const dots = document.createElement("button");
+    dots.type = "button";
+    dots.className = "dots";
+    dots.setAttribute("aria-label", "Shortcut options");
+    dots.innerHTML = '<svg viewBox="0 0 16 4"><circle cx="2" cy="2" r="1.5"/><circle cx="8" cy="2" r="1.5"/><circle cx="14" cy="2" r="1.5"/></svg>';
+    dots.addEventListener("click", e => { e.preventDefault(); e.stopPropagation(); openMenu(dots, i); });
+    a.append(dots);
     a.addEventListener("dragstart", e => {
       dragFrom = i;
       e.dataTransfer.effectAllowed = "move";
@@ -107,54 +112,109 @@ document.getElementById("dlgForm").addEventListener("submit", () => {
   if (editIndex < 0) shortcuts.push(sc); else shortcuts[editIndex] = sc;
   save(); render();
 });
-document.getElementById("delBtn").addEventListener("click", () => {
-  shortcuts.splice(editIndex, 1);
-  save(); render(); dlg.close();
+
+// Options menu on each shortcut; removing is undoable instead of asking for confirmation
+const menu = document.getElementById("menu");
+const toast = document.getElementById("toast");
+let menuIndex = -1, toastTimer, lastRemoved;
+function openMenu(btn, i) {
+  menuIndex = i;
+  const r = btn.getBoundingClientRect();
+  menu.hidden = false;
+  menu.style.left = Math.min(r.left, innerWidth - menu.offsetWidth - 8) + "px";
+  menu.style.top = r.bottom + 4 + "px";
+  menu.querySelector("button").focus();
+}
+const closeMenu = () => { menu.hidden = true; };
+document.addEventListener("click", e => { if (!menu.contains(e.target)) closeMenu(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeMenu(); });
+menu.addEventListener("click", e => {
+  const act = e.target.dataset.act;
+  closeMenu();
+  if (act === "edit") openDialog(menuIndex);
+  if (act === "remove") {
+    const [sc] = shortcuts.splice(menuIndex, 1);
+    lastRemoved = { sc, index: menuIndex };
+    save(); render();
+    document.getElementById("toastText").textContent = "'" + sc.name + "' removed";
+    toast.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.hidden = true, 8000);
+  }
+});
+document.getElementById("toastUndo").addEventListener("click", () => {
+  shortcuts.splice(lastRemoved.index, 0, lastRemoved.sc);
+  save(); render();
+  toast.hidden = true;
+});
+document.getElementById("toastClose").addEventListener("click", () => toast.hidden = true);
+const iconFile = document.getElementById("iconFile");
+document.getElementById("iconUpload").addEventListener("click", () => iconFile.click());
+iconFile.addEventListener("change", () => {
+  const file = iconFile.files[0];
+  iconFile.value = "";
+  if (!file) return;
+  // Shrink to 128px and store inline, so the icon lives in localStorage instead of the repo
+  const img = new Image();
+  img.onload = () => {
+    const k = Math.min(1, 128 / Math.max(img.width, img.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+    fIcon.value = c.toDataURL("image/png");
+    URL.revokeObjectURL(img.src);
+  };
+  img.src = URL.createObjectURL(file);
 });
 document.getElementById("cancelBtn").addEventListener("click", () => dlg.close());
 const settings = document.getElementById("settings");
-const json = document.getElementById("json"), jsonErr = document.getElementById("jsonErr");
+const json = document.getElementById("json"), jsonMsg = document.getElementById("jsonMsg");
 const pretty = () => JSON.stringify(shortcuts, null, 2);
 const valid = d => Array.isArray(d) && d.every(x => x && x.name && x.url);
-function showTab(name) {
-  document.querySelectorAll(".tabs [data-tab]").forEach(b => b.classList.toggle("active", b.dataset.tab === name));
-  document.querySelectorAll(".pane").forEach(p => p.classList.toggle("active", p.id === "pane-" + name));
-}
-document.querySelectorAll(".tabs [data-tab]").forEach(b => b.addEventListener("click", () => showTab(b.dataset.tab)));
+const msg = (t, err) => { jsonMsg.textContent = t; jsonMsg.classList.toggle("err", !!err); };
+const flash = (btn, ok) => {
+  const old = btn.innerHTML;
+  btn.classList.add("done");
+  btn.innerHTML = ok;
+  setTimeout(() => { btn.classList.remove("done"); btn.innerHTML = old; }, 1200);
+};
+const CHECK = '<svg viewBox="0 0 24 24"><path d="M5 12.5 10 17.5 19 7"/></svg>';
 document.getElementById("gearBtn").addEventListener("click", () => {
-  json.value = pretty(); jsonErr.textContent = "";
-  showTab("edit");
+  json.value = pretty(); msg("");
   settings.showModal();
 });
 document.getElementById("closeSettings").addEventListener("click", () => settings.close());
+document.getElementById("jsonCancel").addEventListener("click", () => settings.close());
 settings.addEventListener("click", e => { if (e.target === settings) settings.close(); });
 document.getElementById("jsonSave").addEventListener("click", () => {
   try {
     const data = JSON.parse(json.value);
     if (!valid(data)) throw 0;
     shortcuts = data; save(); render(); settings.close();
-  } catch { jsonErr.textContent = "Invalid JSON: each item needs name and url"; }
+  } catch { msg("Invalid JSON: each item needs a name and a url", true); }
 });
 document.getElementById("copyBtn").addEventListener("click", async e => {
-  try { await navigator.clipboard.writeText(pretty()); e.target.textContent = "Copied"; }
-  catch { e.target.textContent = "Copy failed"; }
-  setTimeout(() => e.target.textContent = "Copy JSON", 1500);
+  const btn = e.currentTarget;
+  try { await navigator.clipboard.writeText(json.value); flash(btn, CHECK); msg("Copied to clipboard"); }
+  catch { msg("Copy failed", true); }
 });
 document.getElementById("exportBtn").addEventListener("click", () => {
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([pretty()], { type: "application/json" }));
+  a.href = URL.createObjectURL(new Blob([json.value], { type: "application/json" }));
   a.download = "newtab-shortcuts.json";
   a.click();
   URL.revokeObjectURL(a.href);
 });
+// Import only fills the editor, so the result can be reviewed before Save applies it
 const importFile = document.getElementById("importFile");
 document.getElementById("importBtn").addEventListener("click", () => importFile.click());
 importFile.addEventListener("change", async () => {
   try {
-    const data = JSON.parse(await importFile.files[0].text());
-    if (!valid(data)) throw 0;
-    shortcuts = data; save(); render(); settings.close();
-  } catch { alert("Invalid shortcuts file"); }
+    const text = await importFile.files[0].text();
+    if (!valid(JSON.parse(text))) throw 0;
+    json.value = JSON.stringify(JSON.parse(text), null, 2);
+    msg("File loaded. Press Save to apply it.");
+  } catch { msg("That file is not a valid shortcuts file", true); }
   importFile.value = "";
 });
 

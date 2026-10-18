@@ -9,6 +9,7 @@
 </head>
 <body>
 <form id="search" action="https://www.google.com/search" method="get">
+  <svg class="lupa" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
   <input id="q" type="search" name="q" placeholder="Search Google or type a URL" autocomplete="off" autofocus>
   <button class="gbtn" type="submit" aria-label="Search"><svg viewBox="-2 -2 52 52" overflow="visible"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.9-6.1A24 24 0 0 0 0 24c0 3.9.9 7.5 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg></button>
 </form>
@@ -18,39 +19,33 @@
 </button>
 <input id="importFile" type="file" accept="application/json" hidden>
 <dialog id="settings">
-  <div class="tabs" role="tablist">
-    <button type="button" role="tab" data-tab="edit" class="active">Edit</button>
-    <button type="button" role="tab" data-tab="export">Export</button>
-    <button type="button" role="tab" data-tab="import">Import</button>
-    <span class="spacer"></span>
-    <button type="button" class="close" id="closeSettings" aria-label="Close">✕</button>
+  <div class="bar">
+    <h2>Shortcuts</h2>
+    <button type="button" class="icon" id="copyBtn" title="Copy JSON" aria-label="Copy JSON"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg></button>
+    <button type="button" class="icon" id="exportBtn" title="Download JSON" aria-label="Download JSON"><svg viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/></svg></button>
+    <button type="button" class="icon" id="importBtn" title="Import JSON file" aria-label="Import JSON file"><svg viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M5 20h14"/></svg></button>
+    <button type="button" class="icon" id="closeSettings" title="Close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
   </div>
-  <div class="pane active" id="pane-edit">
-    <textarea id="json" spellcheck="false"></textarea>
-    <div class="row">
-      <span id="jsonErr"></span>
-      <button type="button" id="jsonSave" class="primary">Save</button>
-    </div>
-  </div>
-  <div class="pane" id="pane-export">
-    <p>Download your shortcuts as a JSON file, or copy them to the clipboard.</p>
-    <div class="row">
-      <button type="button" id="exportBtn" class="primary">Download</button>
-      <button type="button" id="copyBtn">Copy JSON</button>
-    </div>
-  </div>
-  <div class="pane" id="pane-import">
-    <p>Replace your shortcuts with the contents of a JSON file.</p>
-    <div class="row"><button type="button" id="importBtn" class="primary">Choose file…</button></div>
+  <textarea id="json" spellcheck="false" aria-label="Shortcuts JSON"></textarea>
+  <div class="foot">
+    <span id="jsonMsg" role="status"></span>
+    <button type="button" id="jsonCancel">Cancel</button>
+    <button type="button" id="jsonSave" class="primary">Save</button>
   </div>
 </dialog>
+<div id="menu" role="menu" hidden>
+  <button type="button" role="menuitem" data-act="edit">Edit</button>
+  <button type="button" role="menuitem" data-act="remove">Remove</button>
+</div>
+<div id="toast" role="status" hidden><span id="toastText"></span><button type="button" id="toastUndo">Undo</button><button type="button" id="toastClose" aria-label="Dismiss">✕</button></div>
 <dialog id="dlg">
   <form method="dialog" id="dlgForm">
     <label>Name</label><input id="fName" required>
     <label>URL</label><input id="fUrl" required placeholder="example.com">
     <label>Icon URL (optional)</label><input id="fIcon" placeholder="https://…/icon.png">
+    <button type="button" id="iconUpload">Upload image…</button>
+    <input id="iconFile" type="file" accept="image/*" hidden>
     <div class="row">
-      <button id="delBtn" type="button">Delete</button>
       <span class="spacer"></span>
       <button id="cancelBtn" type="button">Cancel</button>
       <button id="saveBtn" type="submit">Save</button>
